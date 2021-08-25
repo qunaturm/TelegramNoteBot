@@ -1,6 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Driver;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -10,9 +8,11 @@ namespace TelegramNoteBot
     public class TelegramLogic
     {
         private static TelegramBotClient _client;
-        TelegramLogic(TelegramBotClient client)
+        private static NoteRepository _noteRepository;
+        public TelegramLogic(TelegramBotClient client, NoteRepository noteRepository)
         {
             _client = client;
+            _noteRepository = noteRepository;
         }
         public static async void OnMessageHandler(object sender, MessageEventArgs e)
         {
@@ -59,7 +59,6 @@ namespace TelegramNoteBot
             _client.StartReceiving();
             _client.OnMessage += GetLastMessage;
             _client.StopReceiving();
-            //и вот тут мне нужно вызвать метод NoteRepositiry.AddNewNote() но я не понимаю как
             _client.SendTextMessageAsync(message.Chat.Id, "Ваша заметка сохранена!");
 
         }
@@ -69,6 +68,7 @@ namespace TelegramNoteBot
             var message = e.Message;
             long lastMessageId = e.Message.MessageId;
             Note newNote = new Note(message.From.Id, lastMessageId, message.Text, false);
+            _noteRepository.AddNewNote(newNote);
         }
 
         private static IReplyMarkup GetButtons()
