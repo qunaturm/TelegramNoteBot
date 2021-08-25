@@ -12,17 +12,17 @@ namespace TelegramNoteBot
 {
     class Program
     {
-        static string token = "1909541944:AAEVkpxs19CMI3WCy5WT8ruYX6goLeETfNI";
-        static TelegramBotClient client;
-        static MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
+        private static string token { get; set; } = "1909541944:AAEVkpxs19CMI3WCy5WT8ruYX6goLeETfNI";
+        private static TelegramBotClient client;
+/*        static MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
         static IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
-        static IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");
+        static IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");*/
 
-        static void Main(string[] args)
+        public static void Main(string[] args)
         {
-/*            MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
+            MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
             IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
-            IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");*/
+            //IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");
 
             client = new TelegramBotClient(token);
             client.StartReceiving();
@@ -87,7 +87,18 @@ namespace TelegramNoteBot
                 var message = e.Message;
                 var lastMessageId = e.Message.MessageId;
                 var newNote = new Note(message.From.Id, message.Text, false);
-                notesCollection.InsertOne(newNote);
+                BsonDocument doc = new BsonDocument
+                {
+                    {"userId",  message.From.Id},
+                    {"noteId", message.MessageId },
+                    { "Text", message.Text},
+                    { "isRemind", false}
+                };
+                MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
+                IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
+                IMongoCollection<BsonDocument> notesCollection = database.GetCollection<BsonDocument>("Notes");
+                notesCollection.InsertOne(doc);
+
             }
 
         }
