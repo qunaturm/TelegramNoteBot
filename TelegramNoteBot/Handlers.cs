@@ -14,14 +14,21 @@ using TelegramNoteBot;
 
 namespace Telegram.Bot.Examples.Echo
 {
+    public class UserInfo
+    {
+        public long id { get; set; }
+        public bool isComand { get; set;  }
+    }
     public class Handlers
     {
+        private static long noteId = 0;
         private NoteRepository _noteRepository;
-        private ConcurrentDictionary<int, UserState> _usersState;
+        //private ConcurrentDictionary<long, UserState> _usersState;
+        private UserInfo _userInfo;
         public Handlers(NoteRepository noteRepository)
         {
             _noteRepository = noteRepository;
-            _usersState = new ConcurrentDictionary<int, UserState>();
+            _userInfo = new UserInfo();
         }
         public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
@@ -65,50 +72,49 @@ namespace Telegram.Bot.Examples.Echo
 
         private async Task BotOnMessageReceived(ITelegramBotClient botClient, Message message)
         {
-            Console.WriteLine($"Receive message type: {message.Type}");
-            if (message.Type != MessageType.Text)
-                return;
+            _userInfo.id = message.From.Id;
+            _userInfo.isComand = true;
 
-            var action = (message.Text.Split(' ').First()) switch
+            if (_userInfo.isComand == true)
             {
-                "/inline" => SendInlineKeyboard(botClient, message),
-                "/keyboard" => SendReplyKeyboard(botClient, message),
-                "/remove" => RemoveKeyboard(botClient, message),
-                "/photo" => SendFile(botClient, message),
-                "/request" => RequestContactAndLocation(botClient, message),
-                _ => Usage(botClient, message)
-            };
-            var sentMessage = await action;
-            Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+                Console.WriteLine($"Receive message type: {message.Type}");
+                if (message.Type != MessageType.Text)
+                    return;
 
-            // Send inline keyboard
-            // You can process responses in BotOnCallbackQueryReceived handler
-            async Task<Message> SendInlineKeyboard(ITelegramBotClient botClient, Message message)
-            {
-                await botClient.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
-
-                // Simulate longer running task
-                await Task.Delay(500);
-
-                var inlineKeyboard = new InlineKeyboardMarkup(new[]
+                var action = (message.Text.Split(' ').First()) switch
                 {
-                    // first row
-                    new []
+                    "/inline" => SendInlineKeyboard(botClient, message),
+                    "/keyboard" => SendReplyKeyboard(botClient, message),
+                    "/remove" => RemoveKeyboard(botClient, message),
+                    _ => Usage(botClient, message)
+                };
+                var sentMessage = await action;
+                Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+
+                async Task<Message> SendInlineKeyboard(ITelegramBotClient botClient, Message message)
+                {
+                    await botClient.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
+
+                    var inlineKeyboard = new InlineKeyboardMarkup(new[]
                     {
-                        InlineKeyboardButton.WithCallbackData("1.1", "11"),
-                        InlineKeyboardButton.WithCallbackData("1.2", "12"),
+                        new []
+                        {
+                            InlineKeyboardButton.WithCallbackData("Обзор функций", "functionsCallback"),
+                            InlineKeyboardButton.WithCallbackData("Создать заметку", "createNotesCallback"),
+
                     },
-                    // second row
-                    new []
-                    {
-                        InlineKeyboardButton.WithCallbackData("2.1", "21"),
-                        InlineKeyboardButton.WithCallbackData("2.2", "22"),
-                    },
+                        new []
+                        {
+                            InlineKeyboardButton.WithCallbackData("Мои заметки", "showNotesCallback"),
+                            InlineKeyboardButton.WithCallbackData("Ещё что-нибудь", "somethingFuckingElseCallback")
+                        },
                 });
 
-                return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                            text: "Choose",
-                                                            replyMarkup: inlineKeyboard);
+                    return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
+                                                                text: "Choose",
+                                                                replyMarkup: inlineKeyboard);
+                }
+
             }
 
             async Task<Message> SendReplyKeyboard(ITelegramBotClient botClient, Message message)
@@ -135,40 +141,12 @@ namespace Telegram.Bot.Examples.Echo
                                                             replyMarkup: new ReplyKeyboardRemove());
             }
 
-            async Task<Message> SendFile(ITelegramBotClient botClient, Message message)
-            {
-                await botClient.SendChatActionAsync(message.Chat.Id, ChatAction.UploadPhoto);
-
-                const string filePath = @"Files/tux.png";
-                using FileStream fileStream = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var fileName = filePath.Split(Path.DirectorySeparatorChar).Last();
-
-                return await botClient.SendPhotoAsync(chatId: message.Chat.Id,
-                                                      photo: new InputOnlineFile(fileStream, fileName),
-                                                      caption: "Nice Picture");
-            }
-
-            async Task<Message> RequestContactAndLocation(ITelegramBotClient botClient, Message message)
-            {
-                var RequestReplyKeyboard = new ReplyKeyboardMarkup(new[]
-                {
-                    KeyboardButton.WithRequestLocation("Location"),
-                    KeyboardButton.WithRequestContact("Contact"),
-                });
-
-                return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                            text: "Who or Where are you?",
-                                                            replyMarkup: RequestReplyKeyboard);
-            }
-
             async Task<Message> Usage(ITelegramBotClient botClient, Message message)
             {
                 const string usage = "Usage:\n" +
                                      "/inline   - send inline keyboard\n" +
                                      "/keyboard - send custom keyboard\n" +
-                                     "/remove   - remove custom keyboard\n" +
-                                     "/photo    - send a photo\n" +
-                                     "/request  - request location or contact";
+                                     "/remove   - remove custom keyboard\n";
 
                 return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
                                                             text: usage,
@@ -176,16 +154,40 @@ namespace Telegram.Bot.Examples.Echo
             }
         }
 
-        // Process Inline Keyboard callback data
+
         private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
         {
-            await botClient.AnswerCallbackQueryAsync(
-                callbackQueryId: callbackQuery.Id,
-                text: $"Received {callbackQuery.Data}");
+            var action = (callbackQuery.Data) switch
+            {
+                "functionsCallback" => TellMeAboutFunctional(),
+                "createNotesCallback" => CreateNewNote()
+                //_ => botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, text: "tatat")
+            };
+            var sentMessage = await action;
 
-            await botClient.SendTextMessageAsync(
-                chatId: callbackQuery.Message.Chat.Id,
-                text: $"Received {callbackQuery.Data}");
+            async Task<Message> TellMeAboutFunctional()   //=> botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
+            {
+                return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
+            }
+
+            async Task<Message> CreateNewNote()
+            {
+                _userInfo.isComand = false;
+                await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "Введите свою заметку", ParseMode.Default, null, false, false, 0, replyMarkup: new ForceReplyMarkup { Selective = true });
+                while (true)
+                {
+                    if (callbackQuery.Message.ReplyToMessage != null && callbackQuery.Message.ReplyToMessage.Text.Contains("Введите свою заметку"))
+                    {
+                        Note note = new Note(_userInfo.id, ++noteId, callbackQuery.Message.Text, false);
+                        _noteRepository.AddNewNote(note);
+                        _userInfo.isComand = true;
+                        return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                                                    text: "Заметка сохранена!");
+                    }
+                }
+                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
+                                                                text: "миша всё хуйня давай по-новой");
+            }
         }
 
         private async Task BotOnInlineQueryReceived(ITelegramBotClient botClient, InlineQuery inlineQuery)
