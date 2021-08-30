@@ -27,7 +27,6 @@ namespace TelegramNoteBot
             IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
             IMongoCollection<BsonDocument> notesCollection = database.GetCollection<BsonDocument>("Notes");
             NoteRepository noteRepository = new NoteRepository(notesCollection);
-            //TelegramLogic telegramLogic = new TelegramLogic(client, noteRepository, cts);
 
             var handlers = new Handlers(noteRepository);
             client.StartReceiving(new DefaultUpdateHandler(handlers.HandleUpdateAsync, handlers.HandleErrorAsync),

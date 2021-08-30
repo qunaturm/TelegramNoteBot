@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Telegram.Bot.Exceptions;
+using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using Telegram.Bot.Types.ReplyMarkups;
@@ -121,45 +122,42 @@ namespace Telegram.Bot.Examples.Echo
             }
         }
 
-
-        private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
-        {
-            var action = (callbackQuery.Data) switch
+            private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
             {
-                "functionsCallback" => TellMeAboutFunctional(),
-                "createNotesCallback" => CreateNewNote()
-                //_ => botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, text: "tatat")
-            };
+                var action = (callbackQuery.Data) switch
+                {
+                    "functionsCallback" => TellMeAboutFunctional(),
+                    "createNotesCallback" => CreateNewNote()
+                    //_ => botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, text: "tatat")
+                };
 
-            async Task<Message> TellMeAboutFunctional()   //=> botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
-            {
-                return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
-            }
+            async Task<Message> TellMeAboutFunctional()
+                {
+                    return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
+            }   
 
-            async Task<Message> CreateNewNote()
+            async Task CreateNewNote()
             {
                 _userInfo.isComand = false;
                 await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "Введите свою заметку", replyMarkup: new ForceReplyMarkup { Selective = true });
-                if (callbackQuery.Data != null && callbackQuery.Message.ReplyToMessage.Text.Contains("Введите свою заметку"))
-                {
-                    await botClient.OnMessage += OnMessageHandler;
-                    Note note = new Note(_userInfo.id, ++noteId, callbackQuery.Message.Text, false);
-                    _noteRepository.AddNewNote(note);
-                    _userInfo.isComand = true;
-                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                                                                text: "Заметка сохранена!");
-                }
-                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id,
-                                                                text: "миша всё хуйня давай по-новой");
+                botClient.StartReceiving(new DefaultUpdateHandler(HandleUpdateAsyncNote, HandleErrorAsync), new CancellationToken());
+
             }
 
-            async Task OnMessageHandler(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+            async Task HandleUpdateAsyncNote(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
             {
                 var handler = update.Type switch
                 {
-                    UpdateType.Message => AddNewNote(update.Message.Text),
-                    _ => botClient.SendAnimationAsync(callbackQuery.Message.Chat.Id, "Введите заметку!")
+                    UpdateType.Message => AddNoteToDB(botClient, update.Message)
                 };
+
+                async Task AddNoteToDB(ITelegramBotClient botClient, Message message)
+                {
+                    Note note = new Note(_userInfo.id, ++noteId, message.Text, false);
+                    _noteRepository.AddNewNote(note);
+                    _userInfo.isComand = true;
+                    botClient.StopReceiving();
+                }
 
                 try
                 {
@@ -171,11 +169,14 @@ namespace Telegram.Bot.Examples.Echo
                 }
             }
 
-            void AddNewNote(String text)
+            void BotClient_OnMessage(object sender, Args.MessageEventArgs e)
             {
-                Note note = new Note(_userInfo.id, ++noteId, callbackQuery.Message.Text, false);
-                _noteRepository.AddNewNote(note);
-                _userInfo.isComand = true;
+                if (e.Message.ReplyToMessage.Text.Contains("Введите свою заметку"))
+                {
+                    Note note = new Note(_userInfo.id, ++noteId, e.Message.Text, false);
+                    _noteRepository.AddNewNote(note);
+                    _userInfo.isComand = true;
+                }
             }
         }
     }
