@@ -1,7 +1,10 @@
-﻿using System.Collections.Generic;
+﻿/*using System.Collections.Generic;
+using System.Threading.Tasks;
 using Telegram.Bot;
 using Telegram.Bot.Args;
 using Telegram.Bot.Types.ReplyMarkups;
+using Telegram.Bot.Extensions.Polling;
+using System.Threading;
 
 namespace TelegramNoteBot
 {
@@ -9,10 +12,12 @@ namespace TelegramNoteBot
     {
         private static TelegramBotClient _client;
         private static NoteRepository _noteRepository;
-        public TelegramLogic(TelegramBotClient client, NoteRepository noteRepository)
+        private static CancellationTokenSource _cts;
+        public TelegramLogic(TelegramBotClient client, NoteRepository noteRepository, CancellationTokenSource cts)
         {
             _client = client;
             _noteRepository = noteRepository;
+            _cts = cts;
         }
         public static async void OnMessageHandler(object sender, MessageEventArgs e)
         {
@@ -55,12 +60,19 @@ namespace TelegramNoteBot
         private static async void CreateNewNote(MessageEventArgs e)
         {
             var message = e.Message;
-            _client.SendTextMessageAsync(message.Chat.Id, "Отправьте заметку");
-            _client.StartReceiving();
-            _client.OnMessage += GetLastMessage;
-            _client.StopReceiving();
-            _client.SendTextMessageAsync(message.Chat.Id, "Ваша заметка сохранена!");
+            var cancellationToken = _cts.Token;
 
+            _client.SendTextMessageAsync(message.Chat.Id, "Отправьте заметку");
+            try
+            {
+                await _client.ReceiveAsync(new DefaultUpdateHandler(Handlers.HandleUpdateAsync, Handlers.HandleErrorAsync),
+                               cancellationToken);
+            }
+            finally
+            {
+                _client.StopReceiving();
+                _client.SendTextMessageAsync(message.Chat.Id, "Ваша заметка сохранена!");
+            }
         }
 
         private static void GetLastMessage(object sender, MessageEventArgs e)
@@ -84,3 +96,4 @@ namespace TelegramNoteBot
         }
     }
 }
+*/

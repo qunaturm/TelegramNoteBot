@@ -21,7 +21,6 @@ namespace TelegramNoteBot
                     { "isRemind", false}
             };
 
-            _notesCollection.InsertOne(doc);
         }
     }
 }
