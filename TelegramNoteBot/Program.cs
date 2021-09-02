@@ -1,14 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using Telegram.Bot;
-using Telegram.Bot.Args;
-using Telegram.Bot.Types;
-using Telegram.Bot.Types.ReplyMarkups;
+﻿using Telegram.Bot;
 using MongoDB.Driver;
-using MongoDB.Bson;
-using SharpCompress.Common;
 using Telegram.Bot.Extensions.Polling;
-using System.Threading;
 using Telegram.Bot.Examples.Echo;
 
 namespace TelegramNoteBot
@@ -25,7 +17,7 @@ namespace TelegramNoteBot
 
             MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
             IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
-            IMongoCollection<BsonDocument> notesCollection = database.GetCollection<BsonDocument>("Notes");
+            IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");
             NoteRepository noteRepository = new NoteRepository(notesCollection);
 
             var handlers = new Handlers(noteRepository);
@@ -34,13 +26,6 @@ namespace TelegramNoteBot
 
             Console.ReadLine();
             cts.Cancel();
-
-            /*
-                        client.StartReceiving();
-                        client.OnMessage += TelegramLogic.OnMessageHandler;
-                        System.Console.ReadLine();
-                        client.StopReceiving();*/
         }
-
     }
 }

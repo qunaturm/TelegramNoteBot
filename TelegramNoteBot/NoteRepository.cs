@@ -5,22 +5,24 @@ namespace TelegramNoteBot
 {
     public class NoteRepository
     {
-        private IMongoCollection<BsonDocument> _notesCollection;
-        public NoteRepository(IMongoCollection<BsonDocument> notesCollection)
+        private IMongoCollection<Note> _notesCollection;
+        public NoteRepository(IMongoCollection<Note> notesCollection)
         {
             _notesCollection = notesCollection;
         }
 
         public void AddNewNote(Note note)
         {
-            BsonDocument doc = new BsonDocument
-            {
-                    {"userId",  note.userId},
-                    {"noteId", note.noteId },
-                    { "Text", note.Text},
-                    { "isRemind", false}
-            };
+            _notesCollection.InsertOne(note);
+        }
 
+        public void GetAllNotes(long userId)
+        {
+            foreach(var doc in _notesCollection)
+            {
+                if (n)
+            }
+            //var userNotes = _notesCollection.Find(.Equals(userId), );
         }
     }
 }

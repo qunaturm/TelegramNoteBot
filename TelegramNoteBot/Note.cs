@@ -6,19 +6,19 @@ namespace TelegramNoteBot
     public class Note
     {
         [BsonId]
-        [BsonRepresentation(BsonType.ObjectId)]
-        public long userId { get; set; }
-        public long noteId { get; set; }
+        public string Id { get { return $"{UserId}:{NoteId}"; } }
+        public long UserId { get; set; }
+        public long NoteId { get; set; }
 
         //[BsonElement("NoteText")]
         public string Text { get; set; }
-        public bool isRemind { get; set; } = false;
+        public bool IsRemind { get; set; } = false;
         public Note(long userId, long noteId, string Text, bool isRemind)
         {
-            this.userId = userId;
-            this.noteId = noteId;
+            this.UserId = userId;
+            this.NoteId = noteId;
             this.Text = Text;
-            this.isRemind = isRemind;
+            this.IsRemind = isRemind;
         }
 
     }

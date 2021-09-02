@@ -6,25 +6,21 @@ using Telegram.Bot.Exceptions;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
+using System.Collections.Concurrent;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramNoteBot;
 
 namespace Telegram.Bot.Examples.Echo
 {
-    public class UserInfo
-    {
-        public long id { get; set; }
-        public bool isComand { get; set;  }
-    }
     public class Handlers
     {
-        private static long noteId = 0;
         private NoteRepository _noteRepository;
-        private UserInfo _userInfo;
+        private ConcurrentDictionary<long, UserState> _userInfo;
+        
         public Handlers(NoteRepository noteRepository)
         {
             _noteRepository = noteRepository;
-            _userInfo = new UserInfo();
+            _userInfo = new ConcurrentDictionary<long, UserState>();
         }
         public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
         {
@@ -59,30 +55,41 @@ namespace Telegram.Bot.Examples.Echo
 
         private async Task BotOnMessageReceived(ITelegramBotClient botClient, Message message)
         {
-            _userInfo.id = message.From.Id;
-            _userInfo.isComand = true;
-
-            if (_userInfo.isComand == true)
+            UserState value;
+            if (_userInfo.GetOrAdd(message.From.Id, UserState.Command).Equals(UserState.Command))
             {
-                Console.WriteLine($"Receive message type: {message.Type}");
-                if (message.Type != MessageType.Text)
-                    return;
+                _userInfo.AddOrUpdate(message.From.Id, UserState.Command, (x, y) => UserState.Command);
+            }
 
-                var action = (message.Text.Split(' ').First()) switch
+            Console.WriteLine($"Receive message type: {message.Type}");
+            if (message.Type != MessageType.Text)
+                return;
+
+            Task<Message> action;
+
+            if (_userInfo.GetOrAdd(message.From.Id, UserState.Command).Equals(UserState.Command))
+            {
+                action = (message.Text.Split(' ').First()) switch
                 {
                     "/inline" => SendInlineKeyboard(botClient, message),
                     "/remove" => RemoveKeyboard(botClient, message),
                     _ => Usage(botClient, message)
                 };
-                var sentMessage = await action;
-                Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+            }
+            else
+            {
+                action = AddNoteToDB(botClient, message);
+            }
 
-                async Task<Message> SendInlineKeyboard(ITelegramBotClient botClient, Message message)
+            var sentMessage = await action;
+            Console.WriteLine($"The message was sent with id: {sentMessage.MessageId}");
+
+            async Task<Message> SendInlineKeyboard(ITelegramBotClient botClient, Message message)
+            {
+                await botClient.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
+
+                var inlineKeyboard = new InlineKeyboardMarkup(new[]
                 {
-                    await botClient.SendChatActionAsync(message.Chat.Id, ChatAction.Typing);
-
-                    var inlineKeyboard = new InlineKeyboardMarkup(new[]
-                    {
                         new []
                         {
                             InlineKeyboardButton.WithCallbackData("Обзор функций", "functionsCallback"),
@@ -96,11 +103,9 @@ namespace Telegram.Bot.Examples.Echo
                         },
                 });
 
-                    return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                                text: "Choose",
-                                                                replyMarkup: inlineKeyboard);
-                }
-
+                return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
+                                                            text: "Choose",
+                                                            replyMarkup: inlineKeyboard);
             }
 
             async Task<Message> RemoveKeyboard(ITelegramBotClient botClient, Message message)
@@ -122,62 +127,46 @@ namespace Telegram.Bot.Examples.Echo
             }
         }
 
-            private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
+        private async Task<Message> AddNoteToDB(ITelegramBotClient botClient, Message message)
+        {
+            Note note = new Note(message.From.Id, message.MessageId, message.Text, false);
+            _noteRepository.AddNewNote(note);
+            //_userInfo.GetOrAdd(message.From.Id, UserState.Command);
+            _userInfo.AddOrUpdate(message.Chat.Id, UserState.Command, (x, y) => UserState.Command);
+            return await botClient.SendTextMessageAsync(chatId: message.Chat.Id, "заметка создана");
+        }
+
+        private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
+        {
+            var action = (callbackQuery.Data) switch
             {
-                var action = (callbackQuery.Data) switch
-                {
-                    "functionsCallback" => TellMeAboutFunctional(),
-                    "createNotesCallback" => CreateNewNote()
-                    //_ => botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, text: "tatat")
-                };
+                "functionsCallback" => TellMeAboutFunctional(),
+                "createNotesCallback" => CreateNewNote()
+            };
+
+            await action;
 
             async Task<Message> TellMeAboutFunctional()
-                {
-                    return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
-            }   
+            {
+                return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
+            }
 
             async Task CreateNewNote()
             {
-                _userInfo.isComand = false;
+                _userInfo.AddOrUpdate(callbackQuery.Message.Chat.Id, UserState.Note, (x, y) => UserState.Note);
                 await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "Введите свою заметку", replyMarkup: new ForceReplyMarkup { Selective = true });
-                botClient.StartReceiving(new DefaultUpdateHandler(HandleUpdateAsyncNote, HandleErrorAsync), new CancellationToken());
 
             }
 
-            async Task HandleUpdateAsyncNote(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
+            async Task<Message> GetNotes()
             {
-                var handler = update.Type switch
+                UserState value;
+                if (_userInfo.TryGetValue(callbackQuery.Message.Chat.Id, out value))
                 {
-                    UpdateType.Message => AddNoteToDB(botClient, update.Message)
-                };
-
-                async Task AddNoteToDB(ITelegramBotClient botClient, Message message)
-                {
-                    Note note = new Note(_userInfo.id, ++noteId, message.Text, false);
-                    _noteRepository.AddNewNote(note);
-                    _userInfo.isComand = true;
-                    botClient.StopReceiving();
-                }
-
-                try
-                {
-                    await handler;
-                }
-                catch (Exception exception)
-                {
-                    await HandleErrorAsync(botClient, exception, cancellationToken);
+                    _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
                 }
             }
 
-            void BotClient_OnMessage(object sender, Args.MessageEventArgs e)
-            {
-                if (e.Message.ReplyToMessage.Text.Contains("Введите свою заметку"))
-                {
-                    Note note = new Note(_userInfo.id, ++noteId, e.Message.Text, false);
-                    _noteRepository.AddNewNote(note);
-                    _userInfo.isComand = true;
-                }
-            }
         }
     }
 }
