@@ -9,6 +9,7 @@ namespace TelegramNoteBot
     public enum UserState
     {
         Command,
-        Note
+        Note,
+        InputnNoteIdToDelete
     }
 }

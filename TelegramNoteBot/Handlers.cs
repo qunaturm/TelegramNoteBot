@@ -73,8 +73,17 @@ namespace Telegram.Bot.Examples.Echo
                 return;
 
             Task<Message> action;
-
-            if (_userInfo.GetOrAdd(message.From.Id, UserState.Command).Equals(UserState.Command))
+            
+            if (_userInfo.GetOrAdd(message.From.Id, UserState.Command).Equals(UserState.Note))
+            {
+                action = AddNoteToDB(botClient, message);
+            }
+            else if (_userInfo.GetOrAdd(message.From.Id, UserState.Command).Equals(UserState.InputnNoteIdToDelete))
+            {
+                action = AddNoteToDB(botClient, message);
+                _userInfo.AddOrUpdate(message.Chat.Id, UserState.Note, (x, y) => UserState.Note); //?
+            }
+            else
             {
                 action = (message.Text.Split(' ').First()) switch
                 {
@@ -82,10 +91,6 @@ namespace Telegram.Bot.Examples.Echo
                     "/remove" => RemoveKeyboard(botClient, message),
                     _ => Usage(botClient, message)
                 };
-            }
-            else
-            {
-                action = AddNoteToDB(botClient, message);
             }
 
             var sentMessage = await action;
@@ -106,12 +111,12 @@ namespace Telegram.Bot.Examples.Echo
                         new []
                         {
                             InlineKeyboardButton.WithCallbackData("Мои заметки", "showNotesCallback"),
-                            InlineKeyboardButton.WithCallbackData("Ещё что-нибудь", "somethingFuckingElseCallback")
+                            InlineKeyboardButton.WithCallbackData("Удалить заметку", "deteteNote")
                         },
                 });
 
                 return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
-                                                            text: "Choose",
+                                                            text: "Выберите:",
                                                             replyMarkup: inlineKeyboard);
             }
 
@@ -125,8 +130,8 @@ namespace Telegram.Bot.Examples.Echo
             async Task<Message> Usage(ITelegramBotClient botClient, Message message)
             {
                 const string usage = "Usage:\n" +
-                                     "/inline   - send inline keyboard\n" +
-                                     "/remove   - remove custom keyboard\n";
+                                     "/inline   - send inline keyboard\n";// +
+                                     //"/remove   - remove custom keyboard\n";
 
                 return await botClient.SendTextMessageAsync(chatId: message.Chat.Id,
                                                             text: usage,
@@ -139,7 +144,7 @@ namespace Telegram.Bot.Examples.Echo
             Note note = new Note(message.From.Id, message.MessageId, message.Text, false);
             _noteRepository.AddNewNote(note);
             _userInfo.AddOrUpdate(message.Chat.Id, UserState.Command, (x, y) => UserState.Command);
-            return await botClient.SendTextMessageAsync(chatId: message.Chat.Id, "заметка создана");
+            return await botClient.SendTextMessageAsync(chatId: message.Chat.Id, "Заметка создана");
         }
 
         private async Task BotOnCallbackQueryReceived(ITelegramBotClient botClient, CallbackQuery callbackQuery)
@@ -148,14 +153,15 @@ namespace Telegram.Bot.Examples.Echo
             {
                 "functionsCallback" => TellMeAboutFunctional(),
                 "createNotesCallback" => CreateNewNote(),
-                "showNotesCallback" => GetNotes()
+                "showNotesCallback" => GetNotes(),
+                "deteteNote" => DeleteNote()
             };
 
             await action;
 
             async Task<Message> TellMeAboutFunctional()
             {
-                return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "создание заметок и пока что всё");
+                return await botClient.SendTextMessageAsync(chatId: callbackQuery.Message.Chat.Id, "Создание заметок и пока что всё");
             }
 
             async Task CreateNewNote()
@@ -168,16 +174,32 @@ namespace Telegram.Bot.Examples.Echo
             async Task<Message> GetNotes()
             {
                 UserState value = UserState.Command;
+                var notes = _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
+                if (!notes.Any())
+                {
+                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "У вас ещё нет сохранённых заметок");
+                }
+                var formatedNotes = notes.Select(note =>
+                    $"Text: {note.Text}\n");
+                var response = string.Join("----------\n", formatedNotes);
+                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, response);
+            }
+
+            async Task<Message> DeleteNote()
+            {
+                UserState value = UserState.Command;
+                int counter = 1;
                 if (_userInfo.TryGetValue(callbackQuery.Message.Chat.Id, out value))
                 {
-                    //_noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
                     var notes = _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
+                    botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "Введите номер заметки, которую хотите удалить");
                     var formatedNotes = notes.Select(note =>
-                        $"UserId: {note.UserId} \n NoteId: {note.NoteId} \n Text: {note.Text}\n");
+                        $"Номер заметки: {counter++}\n Text: {note.Text}\n");
                     var response = string.Join("----------\n", formatedNotes);
-                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, response);
+                    await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, response, replyMarkup: new ForceReplyMarkup { Selective = true });
+                    _userInfo.AddOrUpdate(callbackQuery.Message.Chat.Id, UserState.Note, (x, y) => UserState.InputnNoteIdToDelete);
                 }
-                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "У вас ещё нет сохранённых заметок");
+                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "Чтобы что-то удалить надо сначала это что-то сохранить");
             }
 
         }

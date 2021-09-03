@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading;
-using Telegram.Bot;
+﻿using Telegram.Bot;
 using MongoDB.Driver;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Examples.Echo;
@@ -20,6 +18,7 @@ namespace TelegramNoteBot
             MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
             IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
             IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");
+            IMongoCollection<User> usersCollection = database.GetCollection<User>("Users");
             NoteRepository noteRepository = new NoteRepository(notesCollection);
 
             var handlers = new Handlers(noteRepository);
