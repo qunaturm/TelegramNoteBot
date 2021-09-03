@@ -1,7 +1,11 @@
-﻿using Telegram.Bot.Exceptions;
+﻿using System;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Collections.Concurrent;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Telegram.Bot.Types.ReplyMarkups;
 using TelegramNoteBot;
 
@@ -167,7 +171,11 @@ namespace Telegram.Bot.Examples.Echo
                 if (_userInfo.TryGetValue(callbackQuery.Message.Chat.Id, out value))
                 {
                     //_noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
-                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id).ToString());
+                    var notes = _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
+                    var formatedNotes = notes.Select(note =>
+                        $"UserId: {note.UserId} \n NoteId: {note.NoteId} \n Text: {note.Text}\n");
+                    var response = string.Join("----------\n", formatedNotes);
+                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, response);
                 }
                 return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "У вас ещё нет сохранённых заметок");
             }
