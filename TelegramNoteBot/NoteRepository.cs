@@ -1,4 +1,6 @@
-﻿using MongoDB.Driver;
+﻿using System.Collections.Generic;
+using System.Linq;
+using MongoDB.Driver;
 
 namespace TelegramNoteBot
 {
@@ -15,12 +17,10 @@ namespace TelegramNoteBot
             _notesCollection.InsertOne(note);
         }
 
-        public /*Task<List<Note>>*/ IFindFluent<Note, Note> GetAllNotes(long userId)
-        //public FilterDefinition<Note> GetAllNotes(long userId)
+        public List<Note> GetAllNotes(long userId)
         {
-            //var filter = Builders<Note>.Filter.Where(x => x.UserId == userId);
-            var doc = _notesCollection.Find(x => "UserId" == userId.ToString());
-            return doc;
+            var docs = _notesCollection.AsQueryable().Where(u => u.UserId == userId).ToList();
+            return docs;
         }
     }
 }
