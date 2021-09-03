@@ -1,4 +1,6 @@
-﻿using Telegram.Bot;
+﻿using System;
+using System.Threading;
+using Telegram.Bot;
 using MongoDB.Driver;
 using Telegram.Bot.Extensions.Polling;
 using Telegram.Bot.Examples.Echo;
