@@ -1,9 +1,4 @@
-﻿using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Telegram.Bot.Exceptions;
-using Telegram.Bot.Extensions.Polling;
+﻿using Telegram.Bot.Exceptions;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
 using System.Collections.Concurrent;
@@ -36,11 +31,14 @@ namespace Telegram.Bot.Examples.Echo
 
         public async Task HandleUpdateAsync(ITelegramBotClient botClient, Update update, CancellationToken cancellationToken)
         {
+#pragma warning disable IDE0072 // Add missing cases
             var handler = update.Type switch
+#pragma warning restore IDE0072 // Add missing cases
             {
                 UpdateType.Message => BotOnMessageReceived(botClient, update.Message),
                 UpdateType.EditedMessage => BotOnMessageReceived(botClient, update.EditedMessage),
                 UpdateType.CallbackQuery => BotOnCallbackQueryReceived(botClient, update.CallbackQuery),
+                _ => SomeFuckingErrorWinhSwitch(botClient, update.Message)
             };
 
             try
@@ -51,6 +49,11 @@ namespace Telegram.Bot.Examples.Echo
             {
                 await HandleErrorAsync(botClient, exception, cancellationToken);
             }
+        }
+
+        private async Task SomeFuckingErrorWinhSwitch(ITelegramBotClient botClient, Message message)
+        {
+            Console.WriteLine("произошёл казус");
         }
 
         private async Task BotOnMessageReceived(ITelegramBotClient botClient, Message message)
@@ -131,7 +134,6 @@ namespace Telegram.Bot.Examples.Echo
         {
             Note note = new Note(message.From.Id, message.MessageId, message.Text, false);
             _noteRepository.AddNewNote(note);
-            //_userInfo.GetOrAdd(message.From.Id, UserState.Command);
             _userInfo.AddOrUpdate(message.Chat.Id, UserState.Command, (x, y) => UserState.Command);
             return await botClient.SendTextMessageAsync(chatId: message.Chat.Id, "заметка создана");
         }
@@ -141,7 +143,8 @@ namespace Telegram.Bot.Examples.Echo
             var action = (callbackQuery.Data) switch
             {
                 "functionsCallback" => TellMeAboutFunctional(),
-                "createNotesCallback" => CreateNewNote()
+                "createNotesCallback" => CreateNewNote(),
+                "showNotesCallback" => GetNotes()
             };
 
             await action;
@@ -160,11 +163,13 @@ namespace Telegram.Bot.Examples.Echo
 
             async Task<Message> GetNotes()
             {
-                UserState value;
+                UserState value = UserState.Command;
                 if (_userInfo.TryGetValue(callbackQuery.Message.Chat.Id, out value))
                 {
-                    _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
+                    //_noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id);
+                    return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, _noteRepository.GetAllNotes(callbackQuery.Message.Chat.Id).ToString());
                 }
+                return await botClient.SendTextMessageAsync(callbackQuery.Message.Chat.Id, "У вас ещё нет сохранённых заметок");
             }
 
         }

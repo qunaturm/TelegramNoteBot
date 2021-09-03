@@ -1,5 +1,4 @@
-﻿using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson.Serialization.Attributes;
 
 namespace TelegramNoteBot
 {
@@ -10,15 +9,14 @@ namespace TelegramNoteBot
         public long UserId { get; set; }
         public long NoteId { get; set; }
 
-        //[BsonElement("NoteText")]
         public string Text { get; set; }
         public bool IsRemind { get; set; } = false;
-        public Note(long userId, long noteId, string Text, bool isRemind)
+        public Note(long UserId, long NoteId, string Text, bool IsRemind)
         {
-            this.UserId = userId;
-            this.NoteId = noteId;
+            this.UserId = UserId;
+            this.NoteId = NoteId;
             this.Text = Text;
-            this.IsRemind = isRemind;
+            this.IsRemind = IsRemind;
         }
 
     }
