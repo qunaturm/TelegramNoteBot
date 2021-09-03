@@ -7,8 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TelegramNoteBot", "Telegram
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TestTelegramNoteBot", "TestTelegramNoteBot\TestTelegramNoteBot.csproj", "{EB66D995-4FC5-4617-A188-1F037BA415AD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{03F1A751-E509-467A-8F88-812CFAFA1D2E}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{693C11FE-3178-4D18-A39D-EB111FE014A5}"
 	ProjectSection(SolutionItems) = preProject
 		.editorconfig = .editorconfig
@@ -28,10 +26,6 @@ Global
 		{EB66D995-4FC5-4617-A188-1F037BA415AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EB66D995-4FC5-4617-A188-1F037BA415AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EB66D995-4FC5-4617-A188-1F037BA415AD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{03F1A751-E509-467A-8F88-812CFAFA1D2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{03F1A751-E509-467A-8F88-812CFAFA1D2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{03F1A751-E509-467A-8F88-812CFAFA1D2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{03F1A751-E509-467A-8F88-812CFAFA1D2E}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
