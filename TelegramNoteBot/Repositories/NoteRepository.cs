@@ -4,7 +4,7 @@ using MongoDB.Driver;
 
 namespace TelegramNoteBot
 {
-    public class NoteRepository
+    public class NoteRepository : INoteRepository
     {
         private IMongoCollection<Note> _notesCollection;
         public NoteRepository(IMongoCollection<Note> notesCollection)
@@ -15,6 +15,12 @@ namespace TelegramNoteBot
         public void AddNewNote(Note note)
         {
             _notesCollection.InsertOne(note);
+        }
+
+        public void DeleteNote(long userId, int noteNumber)
+        {
+            var noteToDelete = _notesCollection.AsQueryable().Where(u => u.UserId == userId).Skip(noteNumber - 1).FirstOrDefault();
+            _notesCollection.DeleteOne(u => u.Id == noteToDelete.Id);
         }
 
         public List<Note> GetAllNotes(long userId)
