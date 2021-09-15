@@ -10,14 +10,12 @@ namespace TelegramNoteBot.Handlers
 {
     public class TelegramLogicHandlers
     {
-        private readonly IUserRepository _userRepository;
         private readonly IMessageProcessing _messageProcessing;
         private readonly ICallbackProcessing _callbackProcessing;
         
-        public TelegramLogicHandlers(IUserRepository userRepository, IMessageProcessing messageProcessing, ICallbackProcessing callbackProcessing)
+        public TelegramLogicHandlers(IMessageProcessing messageProcessing, ICallbackProcessing callbackProcessing)
         {
             _messageProcessing = messageProcessing;
-            _userRepository = userRepository;
             _callbackProcessing = callbackProcessing;
         }
         public Task HandleErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)

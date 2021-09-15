@@ -1,23 +1,41 @@
-﻿using Telegram.Bot;
-using MongoDB.Driver;
-using Telegram.Bot.Extensions.Polling;
+﻿using MongoDB.Driver;
+using TelegramNoteBot.Handlers;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection;
+using System.Configuration;
 using System.Threading;
 using System;
-using TelegramNoteBot.Handlers;
+using System.Threading.Tasks;
 
 namespace TelegramNoteBot
 {
     class Program
     {
-        private static string token { get; set; } = "1909541944:AAEVkpxs19CMI3WCy5WT8ruYX6goLeETfNI";
-        private static TelegramBotClient client;
+        public static string botToken = ConfigurationManager.AppSettings["botToken"];
+        public static string mongodbConnectionString = ConfigurationManager.AppSettings["mongodbConnectionString"];
+        public static Task Main(string[] args) =>
+            CreateHostBuilder(args).Build().RunAsync();
 
-        public static void Main(string[] args)
+        static IHostBuilder CreateHostBuilder(string[] args) =>
+            Host.CreateDefaultBuilder(args)
+                .ConfigureServices((_, services) =>
+                    services
+                        .AddHostedService<TelegramBotWorker>()
+                        .AddSingleton<TelegramLogicHandlers>()
+                        .AddSingleton<IMessageProcessing, MessageProcessing>()
+                        .AddSingleton<ICallbackProcessing, CallbackProcessing>()
+                        .AddSingleton<IUserRepository, UserRepository>()
+                        .AddSingleton<INoteRepository, NoteRepository>()
+                        .AddSingleton<IMongoClient, MongoClient>(sp => new MongoClient(mongodbConnectionString))
+                        .AddSingleton<IMongoDatabase>(sp => sp.GetService<IMongoClient>().GetDatabase("TGBotDB"))
+                        .AddSingleton<IMongoCollection<Note>>(sp => sp.GetService<IMongoDatabase>().GetCollection<Note>("Notes"))
+                        .AddSingleton<IMongoCollection<User>>(sp => sp.GetService<IMongoDatabase>().GetCollection<User>("Users")));
+
+        public static void Main1(string[] args)
         {
-            client = new TelegramBotClient(token);
             using var cts = new CancellationTokenSource();
 
-            MongoClient dbClient = new MongoClient("mongodb+srv://karina:Ff224903@cluster0.gzdmw.mongodb.net/test");
+            MongoClient dbClient = new MongoClient(mongodbConnectionString);
             IMongoDatabase database = dbClient.GetDatabase("TGBotDB");
             IMongoCollection<Note> notesCollection = database.GetCollection<Note>("Notes");
             IMongoCollection<User> usersCollection = database.GetCollection<User>("Users");
@@ -25,13 +43,13 @@ namespace TelegramNoteBot
             IUserRepository userRepository = new UserRepository(usersCollection);
             ICallbackProcessing callbackProcessing = new CallbackProcessing(userRepository, noteRepository);
             IMessageProcessing messageProcessing = new MessageProcessing(noteRepository, userRepository);
-
-            var handlers = new TelegramLogicHandlers(userRepository, messageProcessing, callbackProcessing);
-            client.StartReceiving(new DefaultUpdateHandler(handlers.HandleUpdateAsync, handlers.HandleErrorAsync),
-                   cts.Token);
+            TelegramLogicHandlers telegramLogicHandlers = new TelegramLogicHandlers(messageProcessing, callbackProcessing);
+            TelegramBotWorker worker = new TelegramBotWorker(telegramLogicHandlers);
 
             Console.ReadLine();
             cts.Cancel();
+
+
         }
     }
 }
